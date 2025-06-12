@@ -1,0 +1,13 @@
+{
+  "name": "pomodoro-flash",
+  "version": "1.0.0",
+  "description": "A professional Pomodoro timer app with server and browser UI.",
+  "main": "pomodoro.js",
+  "scripts": {
+    "start": "node pomodoro.js"
+  },
+  "author": "Haimanot Tekie",
+  "license": "MIT",
+  "dependencies": {}
+}
+

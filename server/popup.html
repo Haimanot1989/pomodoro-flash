@@ -1,0 +1,183 @@
+<!DOCTYPE html>
+<html>
+<head>
+  <title>Pomodoro</title>
+  <style>
+    html, body {
+      margin: 0;
+      padding: 0;
+      background: black;
+      height: 100vh;
+      overflow: hidden;
+      display: flex;
+      flex-direction: column;
+      align-items: center;
+      justify-content: center;
+      font-family: sans-serif;
+      color: white;
+    }
+    img {
+      max-width: 100vw;
+      max-height: 70vh;
+      margin-bottom: 20px;
+      display: none;
+    }
+    button {
+      padding: 10px 20px;
+      font-size: 20px;
+      cursor: pointer;
+    }
+    #timer {
+      font-size: 3em;
+      margin-bottom: 20px;
+    }
+  </style>
+</head>
+<body>
+<div id="pomodoroCount" style="font-size:1.5em; margin-bottom:10px;">Pomodoros: 0</div>
+<img id="image" src="start.jpg" alt="Start Pomodoro" style="display: block;" />
+<div id="timer"></div>
+<audio id="alarm" src="alarm.mp3"></audio>
+<button id="startBtn">Start Pomodoro</button>
+<button id="stopBtn" style="display:none; margin-left:10px;">Stop</button>
+<button id="pauseBtn" style="display:none; margin-left:10px;">Pause</button>
+
+<script>
+  function getModeFromUrl() {
+    const params = new URLSearchParams(window.location.search);
+    return params.get('mode') === 'break' ? 'break' : 'focus';
+  }
+
+  const image = document.getElementById("image");
+  const button = document.getElementById("startBtn");
+  const stopButton = document.getElementById("stopBtn");
+  const pauseButton = document.getElementById("pauseBtn");
+  const timerDisplay = document.getElementById("timer");
+  const alarm = document.getElementById("alarm");
+
+  const focusTime = 0.25 * 60; // 25 minutes in seconds
+  const breakTime = 0.25 * 60;  // 5 minutes in seconds
+
+  let timeLeft;
+  let isBreak;
+  let intervalId;
+  let started = false;
+  let paused = false;
+  let alarmTimeout;
+  let pomodoroCount = 0;
+  let totalPomodoros = 0;
+
+  function formatTime(seconds) {
+    const m = String(Math.floor(seconds / 60)).padStart(2, '0');
+    const s = String(seconds % 60).padStart(2, '0');
+    return `${m}:${s}`;
+  }
+
+  function updatePomodoroCount() {
+    document.getElementById('pomodoroCount').textContent = `Pomodoros: ${pomodoroCount} (Total: ${totalPomodoros})`;
+  }
+
+  function updateTimer() {
+    timerDisplay.textContent = formatTime(timeLeft);
+    if (timeLeft > 0) {
+      timeLeft--;
+    } else {
+      playAlarm();
+      if (!isBreak) {
+        pomodoroCount++;
+        totalPomodoros++;
+        updatePomodoroCount();
+      }
+      // Switch mode in the same tab by updating the URL and reloading phase
+      isBreak = !isBreak;
+      const newMode = isBreak ? 'break' : 'focus';
+      history.replaceState(null, '', `?mode=${newMode}`);
+      startPhase();
+    }
+  }
+
+  function playAlarm() {
+    alarm.currentTime = 0;
+    alarm.load();
+    alarm.play().catch(err => {
+      alert("Alarm sound could not be played. Please check your browser's autoplay settings.");
+      console.warn("Alarm autoplay blocked:", err);
+    });
+    // Stop alarm after 5 seconds
+    clearTimeout(alarmTimeout);
+    alarmTimeout = setTimeout(() => {
+      alarm.pause();
+      alarm.currentTime = 0;
+    }, 5000);
+  }
+
+  function startPhase() {
+    clearInterval(intervalId);
+    isBreak = getModeFromUrl() === 'break';
+    timeLeft = isBreak ? breakTime : focusTime;
+    image.src = isBreak ? "image.jpg" : "focus.jpg";
+    image.alt = isBreak ? "Break Time!" : "Focus Time!";
+    image.style.display = "block";
+    updateTimer();
+    intervalId = setInterval(updateTimer, 1000);
+  }
+
+  button.addEventListener("click", () => {
+    document.body.requestFullscreen().catch(() => {});
+    button.style.display = "none";
+    stopButton.style.display = "inline-block";
+    pauseButton.style.display = "inline-block";
+    alarm.currentTime = 0;
+    alarm.load();
+    alarm.play().catch(() => {});
+    started = true;
+    paused = false;
+    pomodoroCount = 0;
+    updatePomodoroCount();
+    // Switch to focus/break image on start
+    image.src = getModeFromUrl() === 'break' ? "image.jpg" : "focus.jpg";
+    image.alt = getModeFromUrl() === 'break' ? "Break Time!" : "Focus Time!";
+    image.style.display = "block";
+    setTimeout(startPhase, 200);
+  });
+
+  pauseButton.addEventListener("click", () => {
+    if (!paused) {
+      clearInterval(intervalId);
+      pauseButton.textContent = "Resume";
+      paused = true;
+      clearTimeout(alarmTimeout);
+      alarm.pause();
+      alarm.currentTime = 0;
+    } else {
+      intervalId = setInterval(updateTimer, 1000);
+      pauseButton.textContent = "Pause";
+      paused = false;
+    }
+  });
+
+  stopButton.addEventListener("click", async () => {
+    clearInterval(intervalId);
+    timerDisplay.textContent = "00:00";
+    image.src = "start.jpg";
+    image.alt = "Start Pomodoro";
+    image.style.display = "block";
+    stopButton.style.display = "none";
+    pauseButton.style.display = "none";
+    button.style.display = "inline-block";
+    history.replaceState(null, '', '?mode=focus');
+    pomodoroCount = 0;
+    updatePomodoroCount();
+    clearTimeout(alarmTimeout);
+    alarm.pause();
+    alarm.currentTime = 0;
+    try {
+      await fetch('http://localhost:5000/kill-server', { method: 'POST' });
+    } catch (e) {
+      // ignore errors
+    }
+    window.close();
+  });
+</script>
+</body>
+</html>
