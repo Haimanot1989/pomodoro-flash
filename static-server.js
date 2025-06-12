@@ -3,8 +3,16 @@ const fs = require('fs');
 const path = require('path');
 const url = require('url');
 
+// Get port from env, CLI, or default to 5000
+const getPort = () => {
+    if (process.env.PORT) return parseInt(process.env.PORT, 10);
+    const cliPort = process.argv[2];
+    if (cliPort) return parseInt(cliPort, 10);
+    return 5000;
+};
+const port = getPort();
+
 const root = path.resolve(__dirname, 'server');
-const port = 5000;
 
 const server = http.createServer((req, res) => {
     const parsedUrl = url.parse(req.url); // <-- parse the request
